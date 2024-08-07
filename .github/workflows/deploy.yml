@@ -1,4 +1,4 @@
-name: Deploy to VPS docker
+name: Deploy to VPS Docker
 
 on:
   push:
@@ -31,32 +31,32 @@ jobs:
       run: |
         # Create a temporary directory
         TEMP_DIR=$(mktemp -d)
-        # Copy files to the temporary directory
+        # Sao chép tệp vào thư mục tạm thời
         cp -r . $TEMP_DIR/
-        # Create a tarball from the temporary directory
+        #Tạo tarball từ thư mục tạm thời
         tar -czf nextjs_fe.tar.gz -C $TEMP_DIR .
-        # Clean up temporary directory
+        # Dọn dẹp thư mục tạm thời
         rm -rf $TEMP_DIR
-        # Check if tarball is created
+        # Kiểm tra xem tarball đã được tạo chưa
         ls -lh nextjs_fe.tar.gz
-        # Copy the tarball to the VPS
+        # Sao chép tarball vào VPS
         scp -o StrictHostKeyChecking=no nextjs_fe.tar.gz $VPS_USER@$VPS_IP:/home/$VPS_USER/
-        # SSH into the VPS to extract and deploy
+        # SSH vào VPS để giải nén và triển khai
         ssh -o StrictHostKeyChecking=no $VPS_USER@$VPS_IP << EOF
           cd /home/$VPS_USER
-          # Check if tarball exists
+          # Kiểm tra xem tarball có tồn tại không
           ls -lh nextjs_fe.tar.gz
-          # Create the nextjs_fe directory if it doesn't exist
+          # Tạo thư mục nextjs_fe nếu nó không tồn tại
           mkdir -p nextjs_fe
-          # Extract the tarball into the nextjs_fe directory
+          #Giải nén tarball vào thư mục nextjs_fe
           tar -xzf nextjs_fe.tar.gz -C nextjs_fe
           cd nextjs_fe || exit
           docker build -t nextjs_fe_img .
           docker stop nextjs_fe_container || true
           docker rm nextjs_fe_container || true
           docker run --restart=always -d -p 4000:3000 --name nextjs_fe_container nextjs_fe_img
-          # Remove the old tarball
+          # Xóa tarball cũ
           rm -f /home/$VPS_USER/nextjs_fe.tar.gz
-          # Clean up old deployment
+          # xoá các file đã giải nén trong folder nextjs_fe
           rm -rf /home/root/nextjs_fe
         EOF
