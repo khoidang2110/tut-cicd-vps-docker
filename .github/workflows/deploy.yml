@@ -51,9 +51,10 @@ jobs:
           #Giải nén tarball vào thư mục nextjs_fe
           tar -xzf nextjs_fe.tar.gz -C nextjs_fe
           cd nextjs_fe || exit
-          docker build -t nextjs_fe_img .
           docker stop nextjs_fe_container || true
           docker rm nextjs_fe_container || true
+          docker rmi next_fe_img
+          docker build -t nextjs_fe_img .
           docker run --restart=always -d -p 4000:3000 --name nextjs_fe_container nextjs_fe_img
           # Xóa tarball cũ
           rm -f /home/$VPS_USER/nextjs_fe.tar.gz
