@@ -31,33 +31,33 @@ jobs:
       run: |
         # Create a temporary directory
         TEMP_DIR=$(mktemp -d)
-        # Sao chép tệp vào thư mục tạm thời
+        # Copy files to the temporary directory
         cp -r . $TEMP_DIR/
-        #Tạo tarball từ thư mục tạm thời
+        # Create tarball from the temporary directory
         tar -czf nextjs_fe.tar.gz -C $TEMP_DIR .
-        # Dọn dẹp thư mục tạm thời
+        # Clean up temporary directory
         rm -rf $TEMP_DIR
-        # Kiểm tra xem tarball đã được tạo chưa
+        # Check if tarball is created
         ls -lh nextjs_fe.tar.gz
-        # Sao chép tarball vào VPS
+        # Copy tarball to VPS
         scp -o StrictHostKeyChecking=no nextjs_fe.tar.gz $VPS_USER@$VPS_IP:/home/$VPS_USER/
-        # SSH vào VPS để giải nén và triển khai
+        # SSH into VPS to extract and deploy
         ssh -o StrictHostKeyChecking=no $VPS_USER@$VPS_IP << EOF
           cd /home/$VPS_USER
-          # Kiểm tra xem tarball có tồn tại không
+          # Check if tarball exists
           ls -lh nextjs_fe.tar.gz
-          # Tạo thư mục nextjs_fe nếu nó không tồn tại
+          # Create nextjs_fe directory if it doesn't exist
           mkdir -p nextjs_fe
-          #Giải nén tarball vào thư mục nextjs_fe
+          # Extract tarball into the nextjs_fe directory
           tar -xzf nextjs_fe.tar.gz -C nextjs_fe
           cd nextjs_fe || exit
           docker stop nextjs_fe_container || true
           docker rm nextjs_fe_container || true
-          docker rmi next_fe_img
+          docker rmi -f nextjs_fe_img || true  # Force remove old image if it exists
           docker build -t nextjs_fe_img .
           docker run --restart=always -d -p 4000:3000 --name nextjs_fe_container nextjs_fe_img
-          # Xóa tarball cũ
+          # Clean up tarball
           rm -f /home/$VPS_USER/nextjs_fe.tar.gz
-          # xoá các file đã giải nén trong folder nextjs_fe
-          rm -rf /home/root/nextjs_fe
+          # Optionally remove extracted files
+          rm -rf /home/$VPS_USER/nextjs_fe
         EOF
