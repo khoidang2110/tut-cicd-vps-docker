@@ -16,48 +16,31 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
 
-    - name: Build Docker image
-      run: docker build -t nextjs_fe_img .
-
     - name: Set up SSH
       uses: webfactory/ssh-agent@v0.5.3
       with:
         ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
 
-    - name: Create tarball and deploy
+    - name: Deploy to VPS
       env:
         VPS_IP: ${{ secrets.VPS_IP }}
         VPS_USER: ${{ secrets.VPS_USER }}
       run: |
-        # Create a temporary directory
-        TEMP_DIR=$(mktemp -d)
-        # Copy files to the temporary directory
-        cp -r . $TEMP_DIR/
-        # Create tarball from the temporary directory
-        tar -czf nextjs_fe.tar.gz -C $TEMP_DIR .
-        # Clean up temporary directory
-        rm -rf $TEMP_DIR
-        # Check if tarball is created
-        ls -lh nextjs_fe.tar.gz
-        # Copy tarball to VPS
-        scp -o StrictHostKeyChecking=no nextjs_fe.tar.gz $VPS_USER@$VPS_IP:/home/$VPS_USER/
-        # SSH into VPS to extract and deploy
         ssh -o StrictHostKeyChecking=no $VPS_USER@$VPS_IP << EOF
           cd /home/$VPS_USER
-          # Check if tarball exists
-          ls -lh nextjs_fe.tar.gz
-          # Create nextjs_fe directory if it doesn't exist
-          mkdir -p nextjs_fe
-          # Extract tarball into the nextjs_fe directory
-          tar -xzf nextjs_fe.tar.gz -C nextjs_fe
+          # Clone the latest version of the repository
+          git clone https://github.com/khoidang2110/cicd_vps_docker.git nextjs_fe || (cd nextjs_fe && git pull)
           cd nextjs_fe || exit
+          # Stop and remove the existing container, if any
           docker stop nextjs_fe_container || true
           docker rm nextjs_fe_container || true
-          docker rmi -f nextjs_fe_img || true  # Force remove old image if it exists
+          # Remove the old Docker image
+          docker rmi -f nextjs_fe_img || true
+          # Build the Docker image
           docker build -t nextjs_fe_img .
+          # Run the Docker container
           docker run --restart=always -d -p 4000:3000 --name nextjs_fe_container nextjs_fe_img
-          # Clean up tarball
-          rm -f /home/$VPS_USER/nextjs_fe.tar.gz
-          # Optionally remove extracted files
-          rm -rf /home/$VPS_USER/nextjs_fe
+          # Clean up by removing the cloned repository files
+          cd ..
+          rm -rf nextjs_fe
         EOF
