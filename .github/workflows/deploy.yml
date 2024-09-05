@@ -29,33 +29,41 @@ jobs:
         ssh -o StrictHostKeyChecking=no $VPS_USER@$VPS_IP << EOF
           cd /home/$VPS_USER || { echo "Failed to access directory /home/$VPS_USER"; exit 1; }
 
-          # Check if the current container exists
+          # Kiểm tra nếu backup image đã tồn tại và xóa trước khi tạo mới
+          if [ \$(docker images -q nextjs_fe_backup_img) ]; then
+            docker rmi nextjs_fe_backup_img || { echo "Failed to remove previous backup image"; exit 1; }
+            echo "Previous backup image removed.";
+          else
+            echo "No existing backup image to remove.";
+          fi
+
+          # Kiểm tra nếu container hiện tại tồn tại
           if [ \$(docker ps -a -q -f name=nextjs_fe_container) ]; then
-            # Backup current container and image if they exist
+            # Backup container hiện tại và tạo image backup
             docker commit nextjs_fe_container nextjs_fe_backup_img || { echo "Failed to create backup of the current container"; exit 1; }
           else
             echo "No existing container to backup.";
           fi
           
-          # Stop and remove the existing container, if any
+          # Dừng và xóa container hiện tại, nếu có
           docker stop nextjs_fe_container || { echo "No container to stop"; } || true
           docker rm nextjs_fe_container || { echo "No container to remove"; } || true
 
-          # Check if the old Docker image exists and remove it
+          # Kiểm tra nếu Docker image cũ tồn tại và xóa nó
           if [ \$(docker images -q nextjs_fe_img) ]; then
             docker rmi -f nextjs_fe_img || { echo "Failed to remove Docker image"; } || true
           else
             echo "No existing Docker image to remove.";
           fi
 
-          # Clone the latest version of the repository
+          # Clone phiên bản mới nhất của repository
           git clone https://github.com/khoidang2110/cicd_vps_docker.git nextjs_fe || (cd nextjs_fe && git pull) || { echo "Failed to clone or pull repository"; exit 1; }
           cd nextjs_fe || { echo "Failed to enter nextjs_fe directory"; exit 1; }
 
-          # Try building the new Docker image
+          # Thử build Docker image mới
           docker build -t nextjs_fe_img . || { 
             echo "Failed to build Docker image. Restoring previous container.";
-            # Restore the old container if build fails
+            # Khôi phục container cũ nếu build thất bại
             if [ \$(docker images -q nextjs_fe_backup_img) ]; then
               docker run --restart=always -d -p 4000:3000 --name nextjs_fe_container nextjs_fe_backup_img || { echo "Failed to restore backup container"; exit 1; }
             else
@@ -64,7 +72,7 @@ jobs:
             exit 1; 
           }
 
-          # Run the new Docker container
+          # Chạy container mới
           docker run --restart=always -d -p 4000:3000 --name nextjs_fe_container nextjs_fe_img || { 
             echo "Failed to run new Docker container. Restoring previous container.";
             if [ \$(docker images -q nextjs_fe_backup_img) ]; then
@@ -75,7 +83,15 @@ jobs:
             exit 1; 
           }
 
-          # Clean up by removing the cloned repository files
+          # Nếu mọi thứ thành công, xóa backup image
+          if [ \$(docker images -q nextjs_fe_backup_img) ]; then
+            docker rmi nextjs_fe_backup_img || { echo "Failed to remove backup image"; exit 1; }
+            echo "Backup image removed successfully.";
+          else
+            echo "No backup image found to remove.";
+          fi
+
+          # Xóa các file clone của repository
           cd .. || { echo "Failed to navigate back from nextjs_fe"; exit 1; }
           rm -rf nextjs_fe || { echo "Failed to remove nextjs_fe directory"; exit 1; }
         EOF
