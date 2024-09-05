@@ -67,6 +67,8 @@ jobs:
             if [ \$(docker images -q nextjs_fe_backup_img) ]; then
               docker tag nextjs_fe_backup_img nextjs_fe_img || { echo "Failed to tag backup image as new image"; exit 1; }
               docker run --restart=always -d -p 4000:3000 --name nextjs_fe_container nextjs_fe_img || { echo "Failed to restore backup container"; exit 1; }
+              # Xóa backup image sau khi đổi tên thành công
+              docker rmi nextjs_fe_backup_img || { echo "Failed to remove backup image after tagging"; exit 1; }
             else
               echo "No backup image found. Cannot restore the previous container.";
             fi
