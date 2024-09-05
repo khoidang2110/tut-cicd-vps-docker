@@ -63,9 +63,10 @@ jobs:
           # Thử build Docker image mới
           docker build -t nextjs_fe_img . || { 
             echo "Failed to build Docker image. Restoring previous container.";
-            # Khôi phục container cũ nếu build thất bại
+            # Đổi tên backup image thành tên image đang tạo
             if [ \$(docker images -q nextjs_fe_backup_img) ]; then
-              docker run --restart=always -d -p 4000:3000 --name nextjs_fe_container nextjs_fe_backup_img || { echo "Failed to restore backup container"; exit 1; }
+              docker tag nextjs_fe_backup_img nextjs_fe_img || { echo "Failed to tag backup image as new image"; exit 1; }
+              docker run --restart=always -d -p 4000:3000 --name nextjs_fe_container nextjs_fe_img || { echo "Failed to restore backup container"; exit 1; }
             else
               echo "No backup image found. Cannot restore the previous container.";
             fi
